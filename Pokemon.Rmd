@@ -1,0 +1,118 @@
+---
+title: "POKEMON"
+author: "Santiago Garcia"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    #storyboard: true
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(dplyr)
+library(data.table)
+library(plotly)
+library(rpart)
+library(rpart.plot)
+library(xts)
+library(dygraphs)
+library(ggplot2)
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE)
+
+
+```
+
+
+
+```{r,include=FALSE}
+pokemon <- read_csv("C:/Users/sngh9/OneDrive/Escritorio/ejercicios R/pokemon.csv")%>% data.table()
+tipo1 <- pokemon %>% count(type1) %>% data.table()
+names(tipo1) <- c("TIPO","cantidad")
+legendario <- pokemon[is_legendary=='1',]
+legenc <- legendario %>% count(type1) %>% data.table()
+names(legenc) <- c("TIPO","cantidad")
+###Creación de la series de tiempo"
+se <- pokemon[,c("type1","generation")]
+se1 <- se %>% count(type1,generation) %>% data.table()
+serie <- reshape(se1,idvar = "generation",v.names = "n",timevar = "type1",direction = "wide")
+generation <- serie$generation
+don <- xts(x=serie,order.by=as.Date(generation))
+
+se2 <- pokemon[,c("sp_attack","sp_defense","speed","weight_kg","generation")]
+serie2 <- aggregate(se2[, 1:4], list(se2$generation), mean)
+don2 <- xts(x=serie2[,2:5],order.by=as.Date(generation))
+```
+Clases Pokemon, estadisticas descriptivas
+
+===================================================================
+```{r}
+fig1 <- tipo1 %>% plot_ly(labels = ~TIPO, values = ~cantidad)
+fig1 <- fig1 %>% add_pie(hole = 0.6)
+fig1 <- fig1 %>% layout(title = "Tipo de pokemon",  showlegend = F,
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig1
+```
+
+
+Clases Pokemon1, estadisticas descriptivas
+
+===================================================================
+
+```{r}
+f1 <- ggplot(pokemon , aes(sp_attack, fill = type1))+geom_histogram(binwidth = 0.6)
+f1
+```
+Clases Pokemon2, estadisticas descriptivas
+
+===================================================================
+
+
+```{r}
+f2 <- ggplot(pokemon , aes(sp_defense, fill = type1))+geom_histogram(binwidth = 0.6)
+f2
+```
+
+
+Clases de los legendarios
+======================================================================
+```{r}
+fig2 <- legenc %>% plot_ly(labels = ~TIPO, values = ~cantidad)
+fig2 <- fig2 %>% add_pie(hole = 0.6)
+fig2 <- fig2 %>% layout(title = "Tipo de pokemon Legendario",  showlegend = F,
+                      xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+                      yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+
+fig2
+```
+
+
+Serie de tiempo cambio en generaciones
+=======================================================================================
+```{r}
+dygraph(don)
+```
+
+
+
+```{r}
+dygraph(don2)
+```
+
+Clasificar un pokemon legendario
+===================================================================================================
+```{r}
+mod <- rpart(is_legendary~sp_attack+sp_defense+speed+weight_kg, data = pokemon)
+prp(mod)
+rpart.plot(mod)
+plotcp(mod)
+```
+
+```{r}
+logit <- glm(is_legendary~sp_attack+sp_defense+speed+weight_kg, data = pokemon,family = binomial)
+print(logit)
+```
+
